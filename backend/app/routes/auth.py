@@ -15,6 +15,7 @@ from app.services.spotify_api_service import get_current_spotify_user
 from app.services.spotify_token_service import upsert_spotify_token
 from app.services.spotify_auth_service import build_spotify_login_url
 from app.services.spotify_auth_service import exchange_code_for_token
+from app.services.spotify_ingestion_service import upsert_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -64,6 +65,8 @@ def spotify_callback(
     db = SessionLocal()
 
     try:
+        user = upsert_user(db=db, spotify_profile=spotify_user)
+
         upsert_spotify_token(
             db=db,
             spotify_user_id=spotify_user["id"],
@@ -72,11 +75,14 @@ def spotify_callback(
             expires_in=token_response["expires_in"],
         )
 
+        user_id = user.id
+
     finally:
         db.close()
 
     return {
         "message": "Spotify authentication successful.",
+        "user_id": user.id,
         "spotify_user": spotify_user["id"],
         "tokens_stored": True,
     }

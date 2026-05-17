@@ -10,9 +10,11 @@ while keeping Spotify API request details inside the service layer.
 from fastapi import APIRouter, HTTPException
 
 from app.db.database import SessionLocal
+from app.models.user import User
 from app.services.spotify_api_service import get_user_top_artists, get_user_top_tracks
-from app.services.spotify_token_service import get_decrypted_access_token, update_access_token, get_decrypted_refresh_token
 from app.services.spotify_auth_service import refresh_access_token
+from app.services.spotify_ingestion_service import save_user_top_artists, save_user_top_tracks
+from app.services.spotify_token_service import get_decrypted_access_token, update_access_token, get_decrypted_refresh_token
 
 router = APIRouter(prefix="/spotify", tags=["spotify"])
 
@@ -95,5 +97,44 @@ def get_top_artists(spotify_user: str) -> dict:
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     
+    finally:
+        db.close()
+
+@router.post("/{spotify_user_id}/sync")
+def sync_spotify_data(spotify_user_id: str) -> dict:
+    """
+    Fetch and persist a user's top Spotify tracks and artists.
+    """
+
+    db = SessionLocal()
+
+    try:
+        user = db.query(User).filter(User.spotify_user_id == spotify_user_id).first()
+
+        if user is None:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        access_token = get_decrypted_access_token(db, spotify_user_id)
+
+        top_tracks_response = get_user_top_tracks(access_token)
+        top_artists_response = get_user_top_artists(access_token)
+
+        save_user_top_artists(
+            db,
+            user,
+            top_artists_response.get("items", []),
+        )
+        save_user_top_tracks(
+            db,
+            user, 
+            top_tracks_response.get("items", []),
+        )
+
+        return {
+            "message": "Spotify data synced successfully",
+            "top_tracks_saved": len(top_tracks_response.get("items", [])),
+            "top_artists_saved": len(top_artists_response.get("items", [])),
+        }
+
     finally:
         db.close()
