@@ -31,4 +31,6 @@ class Settings(BaseSettings):
     SPOTIFY_REDIRECT_URI: str = os.getenv("SPOTIFY_REDIRECT_URI", "") # Redirect URI for Spotify OAuth, should be set in environment variables
     TOKEN_ENCRYPTION_KEY: str = os.getenv("TOKEN_ENCRYPTION_KEY") # Encryption key for securing sensitive tokens, should be set in environment variables
 
+    FRONTEND_URL: str | None = os.getenv("FRONTEND_URL") # URL of the frontend application, used for CORS and redirect URIs
+
 settings = Settings() # Create an instance of the Settings class to access configuration values throughout the application

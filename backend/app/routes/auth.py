@@ -11,11 +11,14 @@ from fastapi.responses import RedirectResponse
 from requests import HTTPError
 
 from app.db.database import SessionLocal
+from app.config import settings
 from app.services.spotify_api_service import get_current_spotify_user
 from app.services.spotify_token_service import upsert_spotify_token
 from app.services.spotify_auth_service import build_spotify_login_url
 from app.services.spotify_auth_service import exchange_code_for_token
 from app.services.spotify_ingestion_service import upsert_user
+
+from urllib.parse import urlencode
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -80,10 +83,16 @@ def spotify_callback(
     finally:
         db.close()
 
-    return {
-        "message": "Spotify authentication successful.",
-        "user_id": user.id,
-        "spotify_user": spotify_user["id"],
-        "tokens_stored": True,
-    }
+    # Redirects an authenticated Spotify user to the frontend application
+    frontend_redirect_url = (
+        f"{settings.FRONTEND_URL}/dashboard?"
+        + urlencode(
+            {
+                "spotify_user_id": spotify_user["id"],
+            }
+        )
+    )
+
+    print("Redirecting to frontend:", frontend_redirect_url)
+    return RedirectResponse(frontend_redirect_url)
 

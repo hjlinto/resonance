@@ -7,6 +7,7 @@ during local development and deployment.
 """
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes.test_db import router as test_db_router
 from app.routes.test_config import router as test_config_router
@@ -15,13 +16,24 @@ from app.routes.spotify_data import router as spotify_data_router
 
 from app.db.database import Base, engine
 
-from app import models
-
 # Initialize the FastAPI application with metadata for documentation
 app = FastAPI(
     title="Resonance API",
     description="Backend API for the Resonance music recommendation system.",
     version="0.1.0")
+
+# CORS tells the browser which frontend origins are allowed to call this API.
+# This is required because the frontend and backend run on different ports during local development.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Create database tables based on the defined models
 Base.metadata.create_all(bind=engine) 
