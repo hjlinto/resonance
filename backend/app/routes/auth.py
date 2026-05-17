@@ -93,6 +93,5 @@ def spotify_callback(
         )
     )
 
-    print("Redirecting to frontend:", frontend_redirect_url)
     return RedirectResponse(frontend_redirect_url)
 

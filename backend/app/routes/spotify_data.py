@@ -16,6 +16,7 @@ from app.services.spotify_api_service import get_user_top_artists, get_user_top_
 from app.services.spotify_auth_service import refresh_access_token
 from app.services.spotify_ingestion_service import save_user_top_artists, save_user_top_tracks
 from app.services.spotify_token_service import get_decrypted_access_token, update_access_token, get_decrypted_refresh_token
+from app.services.recommendation_service import generate_recommendations_for_user
 
 
 router = APIRouter(prefix="/spotify", tags=["spotify"])
@@ -131,6 +132,7 @@ def sync_spotify_data(spotify_user_id: str) -> dict:
             user, 
             top_tracks_response.get("items", []),
         )
+        
         """
         This feature is commented out due to Spotify revoking access to audio features for tracks
 
@@ -157,3 +159,21 @@ def sync_spotify_data(spotify_user_id: str) -> dict:
 
     finally:
         db.close()
+
+@router.get("/{spotify_user_id}/recommendations")
+def get_recommendations(spotify_user_id: str) -> dict:
+    """Generate recommendations for a Spotify user from stored listening data."""
+    db = SessionLocal()
+
+    try:
+        recommendations = generate_recommendations_for_user(
+            db=db,
+            spotify_user_id=spotify_user_id
+        )
+
+        return recommendations
+    
+    finally:
+        db.close()
+
+

@@ -7,6 +7,7 @@ normalized database records.
 Routes should not contain data-normalization logic because that logic belongs
 to the backend's data ingestion layer.
 """
+import requests
 
 from sqlalchemy.orm import Session
 
@@ -93,8 +94,6 @@ def upsert_track(db: Session, track_data: dict) -> Track:
     track.album_name = album_name
     track.album_image_url = album_image_url
     track.preview_url = track_data.get("preview_url")
-    print(track_data.get("name"), track_data.get("popularity"))
-    print(track_data.keys())
     track.popularity = track_data.get("popularity")
 
     db.commit()
@@ -139,6 +138,8 @@ def save_user_top_tracks(db: Session, user: User, spotify_top_tracks: list[dict]
 def update_track_audio_features(db: Session, track: Track, audio_features: dict) -> Track:
     """
     Update a track with Spotify audio feature data.
+
+    This function goes unused in current version due to Spotify API revoking access to all audio features.
     """
 
     track.danceability = audio_features.get("danceability")
@@ -152,3 +153,49 @@ def update_track_audio_features(db: Session, track: Track, audio_features: dict)
     db.refresh(track)
 
     return track
+
+def ingest_candidate_tracks_for_user(db: Session, access_token: str, user: User, market: str = "US") -> int:
+    """
+    Ingest candidate recommendation tracks from the user's top artists.
+
+    These tracks are stored in the tracks table only.
+    They are not saved as UserTopTrack rows.
+    """
+
+    top_artists = (
+        db.query(UserTopArtist)
+        .filter(UserTopArtist.user_id == user.id)
+        .all()
+    )
+
+    inserted_or_updated_count = 0
+
+    headers = {
+        "Authorization": f"Bearer {access_token}"
+    }
+
+    for top_artist in top_artists:
+        artist = (
+            db.query(Artist)
+            .filter(Artist.id == top_artist.artist_id)
+            .first()
+        )
+
+        if artist is None:
+            continue
+
+        response = requests.get(
+            f"https://api.spotify.com/v1/artists/{artist.spotify_artist_id}/top-tracks?market={market}",
+            headers=headers,
+            timeout=10,
+        )
+
+        response.raise_for_status()
+
+        artist_top_tracks = response.json().get("tracks", [])
+
+        for spotify_track in artist_top_tracks:
+            upsert_track(db, spotify_track)
+            inserted_or_updated_count += 1
+
+    return inserted_or_updated_count

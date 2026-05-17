@@ -47,7 +47,7 @@ def get_current_spotify_user(access_token: str) -> dict:
     """
     return spotify_get(access_token, "/me")
 
-def get_user_top_tracks(access_token: str, limit: int = 20) -> dict:
+def get_user_top_tracks(access_token: str, limit: int = 50) -> dict:
     """
     Fetch the current Spotify user's top tracks.
     
@@ -60,7 +60,7 @@ def get_user_top_tracks(access_token: str, limit: int = 20) -> dict:
         params={"limit": limit, "time_range": "medium_term"}
     )
 
-def get_user_top_artists(access_token: str, limit: int = 20) -> dict:
+def get_user_top_artists(access_token: str, limit: int = 50) -> dict:
     """
     Fetch the current Spotify user's top artists.
     
