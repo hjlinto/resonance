@@ -2,6 +2,7 @@
     "cSpell.words": [
         "acousticness",
         "danceability",
+        "dotenv",
         "instrumentalness"
     ]
 }

@@ -4,8 +4,8 @@ Spotify OAuth service logic.
 This module owns Spotify authentication behavior that should not live directly
 inside route handlers.
 
-Routes are responsbile for HTTP request/response behavior.
-Services are responsbile for business logic and external API communication.
+Routes are responsible for HTTP request/response behavior.
+Services are responsible for business logic and external API communication.
 """
 import base64
 from urllib.parse import urlencode
@@ -110,5 +110,81 @@ def refresh_access_token(refresh_token: str) -> dict:
     )
 
     response.raise_for_status() # Raise an error for bad responses
+
+    return response.json()
+
+def create_spotify_playlist(
+    access_token: str,
+    spotify_user_id: str,
+    name: str,
+    description: str,
+) -> dict:
+    """
+    Create a Spotify playlist for the authenticated user.
+
+    Resonance generates recommendation results internally, but Spotify
+    still owns playlists persistence. This function exports generated
+    recommendations back into the user's Spotify account.
+
+    Playlist creation currently succeeds, but Spotify is returning 403 responses during playlist track 
+    insertion for some developer applications despite valid authentication scopes and playlist ownership.
+    """
+
+    headers = {
+        "Authorization": "Bearer " + access_token,
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "name": name,
+        "description": description,
+        "public": False,
+    }
+
+    response = requests.post(
+        f"https://api.spotify.com/v1/me/playlists",
+        headers=headers,
+        json=payload,
+        timeout=10,
+    )
+
+    response.raise_for_status()
+
+    return response.json()
+
+
+def add_tracks_to_spotify_playlist(
+    access_token: str,
+    playlist_id: str,
+    track_uris: list[str],
+) -> dict:
+    """
+    Add tracks to a Spotify playlist.
+
+    Spotify currently returns intermittent 403 responses for some developer applications during playlist
+    modification requests despite successful playlist creation and valid OAuth scope.
+    """
+
+    headers = {
+        "Authorization": "Bearer " + access_token,
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "uris": track_uris,
+        "position": 0,
+    }
+
+    response = requests.post(
+        f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks",
+        headers=headers,
+        json=payload,
+        timeout=10,
+    )
+
+    if response.status_code >= 400:
+        print("SPOTIFY ADD TRACKS ERROR:", response.status_code, response.text)
+
+    response.raise_for_status()
 
     return response.json()

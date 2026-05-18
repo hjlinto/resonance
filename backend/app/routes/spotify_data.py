@@ -13,7 +13,7 @@ from app.db.database import SessionLocal
 from app.models.user import User
 from app.models.track import Track
 from app.services.spotify_api_service import get_user_top_artists, get_user_top_tracks
-from app.services.spotify_auth_service import refresh_access_token
+from app.services.spotify_auth_service import refresh_access_token, create_spotify_playlist, add_tracks_to_spotify_playlist
 from app.services.spotify_ingestion_service import save_user_top_artists, save_user_top_tracks
 from app.services.spotify_token_service import get_decrypted_access_token, update_access_token, get_decrypted_refresh_token
 from app.services.recommendation_service import generate_recommendations_for_user
@@ -176,4 +176,54 @@ def get_recommendations(spotify_user_id: str) -> dict:
     finally:
         db.close()
 
+@router.post("/{spotify_user_id}/export-playlist")
+def export_playlist(spotify_user_id: str) -> dict:
+    """
+    Export Resonance recommendations into a Spotify playlist.
+    """
 
+    db = SessionLocal()
+
+    try:
+        recommendations = generate_recommendations_for_user(
+            db=db,
+            spotify_user_id=spotify_user_id,
+            limit=20,
+        )
+
+        recommendation_tracks = recommendations["recommendations"]
+
+        track_uris = [
+            f"spotify:track:{track['spotify_track_id']}"
+            for track in recommendation_tracks
+        ]
+
+        playlist_response = call_spotify_with_refresh(
+            db=db,
+            spotify_user_id=spotify_user_id,
+            spotify_call=lambda access_token: create_spotify_playlist(
+                access_token=access_token,
+                spotify_user_id=spotify_user_id,
+                name="Resonance Playlist",
+                description="Generated from your Spotify listening history by Resonance.",
+            ),
+        )
+
+        call_spotify_with_refresh(
+            db=db,
+            spotify_user_id=spotify_user_id,
+            spotify_call=lambda access_token: add_tracks_to_spotify_playlist(
+                access_token=access_token,
+                playlist_id=playlist_response["id"],
+                track_uris=track_uris,
+            ),
+        )
+
+        return {
+            "message": "Playlist exported successfully.",
+            "playlist_url": playlist_response["external_urls"]["spotify"],
+            "tracks_added": len(track_uris),
+        }
+
+    finally:
+        db.close()
