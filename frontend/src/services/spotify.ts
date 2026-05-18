@@ -16,3 +16,11 @@ export async function fetchTopTracks(spotifyUserId: string) {
     
     return response.data;
 }
+
+export async function fetchRecommendations(spotifyUserId: string) {
+    const response = await api.get(
+        `/spotify/${spotifyUserId}/recommendations`
+    );
+
+    return response.data;
+}
